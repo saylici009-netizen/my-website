@@ -11,7 +11,7 @@ app.use(cors());
 // Serve static HTML file from root
 app.use(express.static(path.join(__dirname)));
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'code.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Setting up Nodemailer using App Passwords
