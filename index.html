@@ -100,6 +100,29 @@
             box-shadow: 0 0 0 3px rgba(236,91,19,0.15);
         }
     </style>
+    <!-- Firebase Auth Modular SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        
+        window.firebaseAuth = {
+            auth,
+            signInWithPopup,
+            googleProvider: new GoogleAuthProvider(),
+            facebookProvider: new FacebookAuthProvider()
+        };
+    </script>
 </head>
 <body class="bg-slate-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
     <div id="root"></div>
@@ -1561,7 +1584,20 @@ const { MemoryRouter, Routes, Route, Link, Navigate, useNavigate, useLocation } 
             if (score <= 3) return { score: 3, label: 'Fiican (Good)', color: 'bg-yellow-500' };
             if (score <= 4) return { score: 4, label: 'Xoog badan (Strong)', color: 'bg-green-500' };
             return { score: 5, label: 'Aad u xooggan! (Very Strong)', color: 'bg-emerald-500' }; }; const LoginPage=({ onLogin,
-            onRegister, user, registerError, onForgotPassword })=> {
+            onRegister, user, registerError, onForgotPassword, onOAuthLogin })=> {
+            
+            const handleProviderLogin = async (provider) => {
+                try {
+                    const result = await window.firebaseAuth.signInWithPopup(window.firebaseAuth.auth, provider);
+                    const authUser = result.user;
+                    if (onOAuthLogin) {
+                        onOAuthLogin(authUser.displayName || 'OAuth User', authUser.email);
+                    }
+                } catch (error) {
+                    console.error("Firebase Login Error", error);
+                    setError(error.message);
+                }
+            };
             const [isLogin, setIsLogin] = useState(true);
             const [isForgotPassword, setIsForgotPassword] = useState(false);
             const [isResetVerifying, setIsResetVerifying] = useState(false);
@@ -1893,7 +1929,7 @@ const { MemoryRouter, Routes, Route, Link, Navigate, useNavigate, useLocation } 
                                     </div>
 
                                     <div className="space-y-3 mt-4">
-                                        <button type="button"
+                                        <button type="button" onClick={() => handleProviderLogin(window.firebaseAuth.googleProvider)}
                                             className="w-full py-3 px-4 bg-white border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 rounded-xl flex items-center justify-center gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-sm">
                                             <svg viewBox="0 0 24 24" width="20" height="20"
                                                 xmlns="http://www.w3.org/2000/svg">
@@ -1914,7 +1950,7 @@ const { MemoryRouter, Routes, Route, Link, Navigate, useNavigate, useLocation } 
                                                 className="text-sm font-bold text-zinc-700 dark:text-zinc-200">Continue
                                                 with Google</span>
                                         </button>
-                                        <button type="button"
+                                        <button type="button" onClick={() => handleProviderLogin(window.firebaseAuth.facebookProvider)}
                                             className="w-full py-3 px-4 bg-[#1877F2] text-white rounded-xl flex items-center justify-center gap-3 hover:bg-[#1864D9] transition-colors shadow-sm">
                                             <svg viewBox="0 0 24 24" width="20" height="20"
                                                 xmlns="http://www.w3.org/2000/svg">
@@ -2187,6 +2223,23 @@ const { MemoryRouter, Routes, Route, Link, Navigate, useNavigate, useLocation } 
                                 return false;
                                 };
 
+                                const oauthLogin = (name, email) => {
+                                let foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+                                if (foundUser) {
+                                    if (!foundUser.verified) {
+                                        foundUser = { ...foundUser, verified: true };
+                                        setUsers(prev => prev.map(u => u.email === email ? foundUser : u));
+                                    }
+                                    setUser(foundUser);
+                                    return true;
+                                } else {
+                                    const newUser = { name, email, password: 'oauthUser', verified: true };
+                                    setUsers(prev => [...prev, newUser]);
+                                    setUser(newUser);
+                                    return true;
+                                }
+                                };
+
                                 const generateAndSendOtp = async (targetEmail, targetName) => {
                                 const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
                                 setOtp(generatedOtp);
@@ -2308,7 +2361,7 @@ const { MemoryRouter, Routes, Route, Link, Navigate, useNavigate, useLocation } 
                                                     <Route path="/collections" element={<CollectionsPage />} />
                                                     <Route path="/about" element={<AboutPage />} />
                                                     <Route path="/login" element={<LoginPage onLogin={login}
-                                                        onRegister={register} user={user}
+                                                        onRegister={register} user={user} onOAuthLogin={oauthLogin}
                                                         onForgotPassword={handleForgotPassword} />} />
                                                     <Route path="/verify" element={<VerifyPage user={user}
                                                         onVerify={verifyOtp} onResendOtp={resendOtp} />} />
